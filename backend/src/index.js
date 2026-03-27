@@ -15,9 +15,25 @@ dotenv.config();
 
 const app = express();
 
+const normalizeOrigin = (value) => value.replace(/\/+$/, "");
+const rawOrigins = process.env.CORS_ORIGIN || "http://localhost:3000";
+const allowedOrigins = rawOrigins
+  .split(",")
+  .map((origin) => normalizeOrigin(origin.trim()))
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+      const normalized = normalizeOrigin(origin);
+      if (allowedOrigins.includes(normalized)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true
   })
 );
