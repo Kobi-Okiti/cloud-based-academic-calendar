@@ -9,6 +9,7 @@ import { assertOk } from "@/lib/apiErrors";
 import Skeleton from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
 import EventDetailDialog from "@/components/EventDetailDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -77,6 +78,9 @@ export default function CalendarPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [dayDialogOpen, setDayDialogOpen] = useState(false);
+  const [dayDialogEvents, setDayDialogEvents] = useState<EventItem[]>([]);
+  const [dayDialogDate, setDayDialogDate] = useState<Date | null>(null);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -176,6 +180,8 @@ export default function CalendarPage() {
     year: "numeric"
   });
 
+  const todayKey = dateKey(new Date());
+
   const calendarCells = buildCalendar(
     currentMonth.getFullYear(),
     currentMonth.getMonth()
@@ -199,6 +205,15 @@ export default function CalendarPage() {
   const handleOpen = (event: EventItem) => {
     setSelectedEvent(event);
     setDetailOpen(true);
+  };
+
+  const handleOpenDayEvents = (date: Date, list: EventItem[]) => {
+    const sorted = [...list].sort(
+      (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
+    );
+    setDayDialogEvents(sorted);
+    setDayDialogDate(date);
+    setDayDialogOpen(true);
   };
 
   if (profileLoading) {
@@ -289,11 +304,14 @@ export default function CalendarPage() {
 
                 const key = dateKey(date);
                 const dayEvents = eventsByDate.get(key) || [];
+                const isToday = key === todayKey;
 
                 return (
                   <div
                     key={key}
-                    className="flex h-20 flex-col rounded-xl border border-slate-200 bg-white/80 p-2 text-xs"
+                    className={`flex h-20 flex-col rounded-xl border border-slate-200 bg-white/80 p-2 text-xs ${
+                      isToday ? "border-yellow-300 bg-yellow-50/70 ring-2 ring-yellow-200" : ""
+                    }`}
                   >
                     <div className="font-medium text-slate-900">
                       {date.getDate()}
@@ -311,9 +329,13 @@ export default function CalendarPage() {
                           </button>
                         ))}
                         {dayEvents.length > 2 ? (
-                          <div className="text-[10px] text-slate-400">
+                          <button
+                            type="button"
+                            className="text-left text-[10px] text-slate-400 hover:text-blue-900"
+                            onClick={() => handleOpenDayEvents(date, dayEvents)}
+                          >
                             +{dayEvents.length - 2} more
-                          </div>
+                          </button>
                         ) : null}
                       </div>
                     ) : null}
@@ -420,6 +442,52 @@ export default function CalendarPage() {
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />
+
+      <Dialog open={dayDialogOpen} onOpenChange={setDayDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {dayDialogDate
+                ? `Events on ${dayDialogDate.toLocaleDateString(undefined, {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric"
+                  })}`
+                : "Events"}
+            </DialogTitle>
+          </DialogHeader>
+          {dayDialogEvents.length === 0 ? (
+            <p className="helper-text">No events for this day.</p>
+          ) : (
+            <div className="space-y-2">
+              {dayDialogEvents.map((eventItem) => (
+                <button
+                  key={eventItem.id}
+                  type="button"
+                  className="card-sm w-full p-3 text-left"
+                  onClick={() => {
+                    setDayDialogOpen(false);
+                    handleOpen(eventItem);
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{eventItem.title}</p>
+                      <p className="text-sm text-slate-600 truncate">
+                        {new Date(eventItem.start_at).toLocaleString()}
+                      </p>
+                    </div>
+                    {eventItem.is_urgent ? (
+                      <span className="badge-urgent">Urgent</span>
+                    ) : null}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
