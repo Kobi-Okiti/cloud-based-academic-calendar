@@ -101,6 +101,12 @@ create table if not exists notifications (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists notifications_unique
+  on notifications (user_id, event_id, channel, scheduled_at);
+
+create index if not exists notifications_unread_idx
+  on notifications (user_id, read_at);
+
 -- Updated_at triggers
 create or replace function public.set_updated_at()
 returns trigger as $$

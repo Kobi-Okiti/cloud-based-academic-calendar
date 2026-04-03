@@ -1,0 +1,138 @@
+Lead City University Academic Calendar - MVP Walkthrough
+========================================================
+
+Purpose
+-------
+This application is a cloud-based academic calendar monitoring and notification system. It helps the university
+share official academic updates (tests, exams, seminars, announcements, holidays) with students and staff in a
+single, reliable place. The MVP focuses on clarity, role-based access, and in-app reminders.
+
+Core Roles
+----------
+1) Admin
+- Approves new user registrations.
+- Creates and manages academic calendar events.
+- Targets events to everyone, staff only, or students by level.
+- Uses the session rollover tool to promote student levels once per session.
+
+2) Staff
+- Views academic calendar updates and notifications.
+- Has a dedicated dashboard experience.
+
+3) Student
+- Views academic calendar updates and notifications.
+- Has a dedicated dashboard experience with level-based events.
+
+Navigation (Navbar)
+-------------------
+The navbar adapts by role and shows the active page state.
+- Student/Staff links: Dashboard, Calendar, Notifications, Profile
+- Admin links: Approvals, Events, Calendar, Profile
+- Mobile: collapses into a hamburger menu with links + Logout
+
+Authentication & Approval
+-------------------------
+- Self-signup is enabled.
+- After signup, users are set to "pending" and must be approved by the admin.
+- The pending screen blocks dashboard access until approval.
+
+Pages & Functionality
+---------------------
+1) Dashboard (Student/Staff)
+- Shows a personalized welcome message.
+- Displays the next 5 upcoming events (clickable cards).
+- Event cards open a detail modal with full event info.
+
+2) Calendar
+- Month grid view with current day highlighted.
+- Day cells show up to 2 events; "+N more" opens a day-events modal.
+- Month list view (desktop) and event list (mobile).
+- Event cards match the dashboard style and are clickable.
+- All event details are visible in a modal.
+
+3) Notifications
+- Lists in-app notifications with clear time formatting.
+- Shows event date, scheduled time, and sent time.
+- Pagination controls (Prev/Next) with 10 items per page.
+- Empty state guidance when there are no notifications.
+
+4) Profile
+- Shows user account information.
+- Student: level and matric number.
+- Staff: staff ID.
+
+5) Admin Approvals
+- Lists pending users (paginated, 5 per page).
+- Approve or reject new registrations.
+- Includes the Session Rollover tool:
+  - Promotes students one level up (100→200→300→400→500).
+  - Preview counts before running.
+
+6) Admin Events
+- Create events with full validation (title, times, audience, urgent flag).
+- Edit and delete existing events.
+- Pagination on the event list.
+
+Event Rules & Targeting
+-----------------------
+- Audience scope can be:
+  - Everyone
+  - Staff
+  - Students
+- For student events, a specific level can be selected (100–500).
+- Urgent events create immediate in-app notifications.
+- Regular events generate reminders 7 days and 1 day before start date (via cron).
+
+Notifications System
+--------------------
+- In-app notifications only (email removed for MVP simplicity).
+- Urgent notifications are created immediately when the event is saved.
+- Scheduled reminders are created by cron using the notification rules table.
+- Notifications are marked as read when the user opens the Notifications page.
+- Navbar shows unread count next to Notifications.
+
+Pagination Summary
+------------------
+- Notifications: 10 per page.
+- Admin pending users: 5 per page.
+- Admin events: paginated list.
+
+Cron Jobs (Reminders)
+---------------------
+- External cron (cron-job.org) calls:
+  POST /notifications/run
+  Header: x-cron-secret: <CRON_SECRET>
+- This generates 7-day and 1-day reminders for upcoming events.
+
+Technology Stack
+----------------
+Frontend
+- Next.js (App Router), React, TypeScript
+- Tailwind CSS + shadcn/ui
+
+Backend
+- Node.js + Express
+- Supabase (auth, database, RLS)
+
+Data & Security
+---------------
+- Supabase RLS to protect tables.
+- Unique constraints for matric number and staff ID.
+- Backend validation with Zod for events and admin actions.
+
+How to Use (Reviewer Quick Start)
+---------------------------------
+1) Create admin account in Supabase or set role to admin.
+2) Approve a pending student or staff user.
+3) Create events (including one urgent event).
+4) Open dashboard and calendar to confirm event visibility.
+5) Run cron endpoint to create 7-day / 1-day reminders.
+6) Check Notifications page and navbar unread count.
+
+Deployment Notes
+----------------
+- Backend: Render (Express API)
+- Frontend: Netlify (Next.js)
+- Ensure CORS origin matches Netlify domain exactly (no trailing slash).
+
+End of document.
