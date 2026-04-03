@@ -380,6 +380,11 @@ export default function CalendarPage() {
                         <span className="badge-urgent">Urgent</span>
                       ) : null}
                     </div>
+                    {event.description ? (
+                      <p className="mt-2 text-sm text-slate-600 truncate">
+                        {event.description}
+                      </p>
+                    ) : null}
                   </button>
                 </li>
               ))}
@@ -414,7 +419,7 @@ export default function CalendarPage() {
                   className="w-full rounded-xl p-4 text-left transition-colors hover:bg-slate-50"
                   onClick={() => handleOpen(event)}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">{event.title}</p>
                       <p className="text-sm text-slate-600 truncate">
@@ -465,21 +470,28 @@ export default function CalendarPage() {
                 <button
                   key={eventItem.id}
                   type="button"
-                  className="card-sm w-full p-3 text-left"
+                  className="card-sm w-full p-0 text-left"
                   onClick={() => {
                     setDayDialogOpen(false);
                     handleOpen(eventItem);
                   }}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{eventItem.title}</p>
-                      <p className="text-sm text-slate-600 truncate">
-                        {new Date(eventItem.start_at).toLocaleString()}
-                      </p>
+                  <div className="w-full rounded-xl p-4 transition-colors hover:bg-slate-50">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{eventItem.title}</p>
+                        <p className="text-sm text-slate-600 truncate">
+                          {new Date(eventItem.start_at).toLocaleString()}
+                        </p>
+                      </div>
+                      {eventItem.is_urgent ? (
+                        <span className="badge-urgent">Urgent</span>
+                      ) : null}
                     </div>
-                    {eventItem.is_urgent ? (
-                      <span className="badge-urgent">Urgent</span>
+                    {eventItem.description ? (
+                      <p className="mt-2 text-sm text-slate-600 truncate">
+                        {eventItem.description}
+                      </p>
                     ) : null}
                   </div>
                 </button>

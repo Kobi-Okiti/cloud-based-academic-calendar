@@ -10,7 +10,12 @@ import Skeleton from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
 
 const formatDate = (value: string | null) =>
-  value ? new Date(value).toLocaleString() : "";
+  value
+    ? new Date(value).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short"
+      })
+    : "—";
 
 type NotificationItem = {
   id: string;
@@ -133,10 +138,15 @@ export default function NotificationsPage() {
                       {item.event?.title || "Event update"}
                     </p>
                     <p className="text-sm text-slate-600">
-                      {formatDate(item.event?.start_at || item.scheduled_at)}
+                      {item.event?.start_at
+                        ? `Event date: ${formatDate(item.event.start_at)}`
+                        : `Scheduled: ${formatDate(item.scheduled_at)}`}
                     </p>
                     <p className="text-xs text-slate-500">
-                      Channel: {item.channel} • Status: {item.status}
+                      Scheduled: {formatDate(item.scheduled_at)}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Sent: {item.sent_at ? formatDate(item.sent_at) : "Pending"}
                     </p>
                   </div>
                   {item.event?.is_urgent ? (
