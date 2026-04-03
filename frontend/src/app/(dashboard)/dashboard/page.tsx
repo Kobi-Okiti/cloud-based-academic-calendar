@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { fetchMe } from "@/lib/api";
 import { fetchEvents } from "@/lib/eventsApi";
+import { assertOk } from "@/lib/apiErrors";
+import Skeleton from "@/components/Skeleton";
+import EmptyState from "@/components/EmptyState";
+import EventDetailDialog from "@/components/EventDetailDialog";
 
 type UserProfile = {
   id: string;
@@ -34,6 +38,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -55,21 +61,18 @@ export default function DashboardPage() {
           return;
         }
 
-        if (res.status >= 400) {
-          throw new Error(res.data?.error || "Failed to load profile");
-        }
-
-        const body = res.data;
+        const body = assertOk(res, "Failed to load profile").data;
         if (body.user.role === "admin") {
           router.push("/admin/approvals");
           return;
         }
         setProfile(body.user);
 
-        const eventsRes = await fetchEvents(token);
-        if (eventsRes.status < 400) {
-          setEvents(eventsRes.data?.events || []);
-        }
+        const eventsRes = await fetchEvents(token, {
+          limit: 5,
+          from: new Date().toISOString()
+        });
+        setEvents(assertOk(eventsRes, "Failed to load events").data?.events || []);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Error";
         setError(message);
@@ -86,10 +89,24 @@ export default function DashboardPage() {
   }
 
   if (loading || !profile) {
-    return <p className="helper-text">Loading...</p>;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="card p-6 space-y-4">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      </div>
+    );
   }
 
   const upcomingEvents = events.slice(0, 5);
+
+  const handleOpen = (event: EventItem) => {
+    setSelectedEvent(event);
+    setDetailOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -103,32 +120,51 @@ export default function DashboardPage() {
       <div className="card p-6">
         <h3 className="text-lg font-semibold text-blue-950">Upcoming events</h3>
         {upcomingEvents.length === 0 ? (
-          <p className="helper-text mt-2">No events yet.</p>
+          <div className="mt-4">
+            <EmptyState
+              title="No upcoming events"
+              description="You are all caught up. Check back later for new calendar updates."
+              actionLabel="View calendar"
+              actionHref="/calendar"
+            />
+          </div>
         ) : (
           <ul className="mt-3 space-y-2">
             {upcomingEvents.map((event) => (
               <li key={event.id} className="card-sm p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{event.title}</p>
-                    <p className="text-sm text-slate-600">
-                      {new Date(event.start_at).toLocaleString()}
-                    </p>
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => handleOpen(event)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{event.title}</p>
+                      <p className="text-sm text-slate-600">
+                        {new Date(event.start_at).toLocaleString()}
+                      </p>
+                    </div>
+                    {event.is_urgent ? (
+                      <span className="badge-urgent">Urgent</span>
+                    ) : null}
                   </div>
-                  {event.is_urgent ? (
-                    <span className="badge-urgent">Urgent</span>
+                  {event.description ? (
+                    <p className="mt-2 text-sm text-slate-600">
+                      {event.description}
+                    </p>
                   ) : null}
-                </div>
-                {event.description ? (
-                  <p className="mt-2 text-sm text-slate-600">
-                    {event.description}
-                  </p>
-                ) : null}
+                </button>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      <EventDetailDialog
+        event={selectedEvent}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </div>
   );
 }

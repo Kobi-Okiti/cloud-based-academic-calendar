@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { fetchMe } from "@/lib/api";
 import { createEvent, deleteEvent, fetchEvents, updateEvent } from "@/lib/eventsApi";
+import { assertOk } from "@/lib/apiErrors";
 import {
   Dialog,
   DialogContent,
@@ -98,21 +99,30 @@ export default function AdminEventsPage() {
     }
 
     const meRes = await fetchMe(token);
-    if (meRes.status >= 400) {
-      router.push("/login");
-      return;
-    }
-
-    const meData = meRes.data;
+    const meData = assertOk(meRes, "Failed to load profile").data;
     if (meData.user.role !== "admin") {
       router.push("/dashboard");
       return;
     }
 
-    const eventsRes = await fetchEvents(token);
-    if (eventsRes.status < 400) {
-      setEvents(eventsRes.data?.events || []);
+    const baseParams = { page: 1, limit: 100 };
+    const eventsRes = await fetchEvents(token, baseParams);
+    const eventsData = assertOk(eventsRes, "Failed to load events").data;
+    let allEvents = eventsData?.events || [];
+
+    const totalPages = eventsData?.pagination?.totalPages || 1;
+    if (totalPages > 1) {
+      const pages = Array.from({ length: totalPages - 1 }, (_, idx) => idx + 2);
+      const responses = await Promise.all(
+        pages.map((page) => fetchEvents(token, { ...baseParams, page }))
+      );
+      responses.forEach((response) => {
+        const body = assertOk(response, "Failed to load events").data;
+        allEvents = allEvents.concat(body?.events || []);
+      });
     }
+
+    setEvents(allEvents);
   };
 
   useEffect(() => {
@@ -187,11 +197,7 @@ export default function AdminEventsPage() {
         ? await updateEvent(token, editingId, payload)
         : await createEvent(token, payload);
 
-      if (res.status >= 400) {
-        throw new Error(res.data?.error || "Failed to save event");
-      }
-
-      const body = res.data;
+      const body = assertOk(res, "Failed to save event").data;
       if (editingId) {
         setEvents((prev) =>
           prev.map((item) => (item.id === editingId ? body.event : item))
@@ -235,9 +241,7 @@ export default function AdminEventsPage() {
       }
 
       const res = await deleteEvent(token, id);
-      if (res.status >= 400) {
-        throw new Error("Failed to delete event");
-      }
+      assertOk(res, "Failed to delete event");
 
       setEvents((prev) => prev.filter((item) => item.id !== id));
     } catch (err) {

@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { fetchMe } from "@/lib/api";
 import { fetchNotifications } from "@/lib/notificationsApi";
+import { assertOk } from "@/lib/apiErrors";
+import Skeleton from "@/components/Skeleton";
+import EmptyState from "@/components/EmptyState";
 
 const formatDate = (value: string | null) =>
   value ? new Date(value).toLocaleString() : "";
@@ -25,50 +28,86 @@ type NotificationItem = {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const [token, setToken] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const loadNotifications = useCallback(async (
+    accessToken: string,
+    nextPage: number,
+    append: boolean
+  ) => {
+    try {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      const notifRes = await fetchNotifications(accessToken, {
+        page: nextPage,
+        limit: 20
+      });
+      const body = assertOk(notifRes, "Failed to load notifications").data;
+      const nextItems = body?.notifications || [];
+      const nextPagination = body?.pagination;
+
+      setNotifications((prev) => (append ? [...prev, ...nextItems] : nextItems));
+      setPage(nextPagination?.page || nextPage);
+      setTotalPages(nextPagination?.totalPages || 1);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error";
+      setError(message);
+    } finally {
+      if (append) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const load = async () => {
       try {
+        setError(null);
         const supabase = getSupabaseClient();
         const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token;
+        const accessToken = data.session?.access_token;
 
-        if (!token) {
+        if (!accessToken) {
           router.push("/login");
           return;
         }
 
-        const res = await fetchMe(token);
+        const res = await fetchMe(accessToken);
         if (res.status === 403) {
           router.push("/pending");
           return;
         }
 
-        if (res.status >= 400) {
-          throw new Error(res.data?.error || "Failed to load profile");
-        }
-
-        const notifRes = await fetchNotifications(token);
-        if (notifRes.status < 400) {
-          setNotifications(notifRes.data?.notifications || []);
-        }
+        assertOk(res, "Failed to load profile");
+        setToken(accessToken);
+        await loadNotifications(accessToken, 1, false);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Error";
         setError(message);
-      } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, [router]);
+  }, [loadNotifications, router]);
 
-  if (loading) {
-    return <p className="helper-text">Loading...</p>;
-  }
+  const handleLoadMore = async () => {
+    if (!token || page >= totalPages || loadingMore) return;
+    await loadNotifications(token, page + 1, true);
+  };
 
   if (error) {
     return <p className="text-red-600">{error}</p>;
@@ -80,31 +119,56 @@ export default function NotificationsPage() {
         <h2 className="text-2xl font-semibold">Notifications</h2>
         <p className="helper-text">In-app reminders and updates.</p>
       </div>
-      {notifications.length === 0 ? (
-        <p className="helper-text">No notifications yet.</p>
-      ) : (
+      {loading && notifications.length === 0 ? (
         <div className="space-y-3">
-          {notifications.map((item) => (
-            <div key={item.id} className="card-sm p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-medium">
-                    {item.event?.title || "Event update"}
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    {formatDate(item.event?.start_at || item.scheduled_at)}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Channel: {item.channel} • Status: {item.status}
-                  </p>
-                </div>
-                {item.event?.is_urgent ? (
-                  <span className="badge-urgent">Urgent</span>
-                ) : null}
-              </div>
-            </div>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={`notif-skel-${index}`} className="h-20" />
           ))}
         </div>
+      ) : notifications.length === 0 ? (
+        <EmptyState
+          title="No notifications yet"
+          description="You will see reminders here when new events are scheduled."
+          actionLabel="View calendar"
+          actionHref="/calendar"
+        />
+      ) : (
+        <>
+          <div className="space-y-3">
+            {notifications.map((item) => (
+              <div key={item.id} className="card-sm p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium">
+                      {item.event?.title || "Event update"}
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      {formatDate(item.event?.start_at || item.scheduled_at)}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Channel: {item.channel} • Status: {item.status}
+                    </p>
+                  </div>
+                  {item.event?.is_urgent ? (
+                    <span className="badge-urgent">Urgent</span>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+          {page < totalPages ? (
+            <div className="flex justify-center">
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading..." : "Load more"}
+              </button>
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   );

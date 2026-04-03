@@ -1,6 +1,8 @@
 const express = require("express");
 const { getSupabaseAdmin } = require("../lib/supabase");
 const { requireAuth, requireApproved, requireAdmin } = require("../middleware/auth");
+const { validateParams } = require("../middleware/validate");
+const { idParamSchema } = require("../lib/schemas");
 
 const router = express.Router();
 
@@ -27,9 +29,9 @@ router.get("/pending-users", async (_req, res) => {
   }
 });
 
-router.post("/approve/:id", async (req, res) => {
+router.post("/approve/:id", validateParams(idParamSchema), async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.validatedParams;
     const supabase = getSupabaseAdmin();
     const { error } = await supabase
       .from("profiles")
@@ -46,9 +48,9 @@ router.post("/approve/:id", async (req, res) => {
   }
 });
 
-router.post("/reject/:id", async (req, res) => {
+router.post("/reject/:id", validateParams(idParamSchema), async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.validatedParams;
     const supabase = getSupabaseAdmin();
     const { error } = await supabase
       .from("profiles")

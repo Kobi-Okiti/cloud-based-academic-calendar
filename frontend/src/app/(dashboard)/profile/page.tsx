@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { fetchMe } from "@/lib/api";
+import { assertOk } from "@/lib/apiErrors";
 
 type UserProfile = {
   id: string;
@@ -41,11 +42,8 @@ export default function ProfilePage() {
           return;
         }
 
-        if (res.status >= 400) {
-          throw new Error(res.data?.error || "Failed to load profile");
-        }
-
-        setProfile(res.data.user);
+        const body = assertOk(res, "Failed to load profile").data;
+        setProfile(body.user);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Error";
         setError(message);

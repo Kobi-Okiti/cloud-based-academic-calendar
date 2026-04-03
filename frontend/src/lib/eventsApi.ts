@@ -1,7 +1,17 @@
 import { api, withAuth } from "@/lib/http";
 
-export async function fetchEvents(accessToken: string) {
-  return api.get("/events", withAuth(accessToken));
+type FetchEventsParams = {
+  page?: number;
+  limit?: number;
+  from?: string;
+  to?: string;
+};
+
+export async function fetchEvents(accessToken: string, params?: FetchEventsParams) {
+  return api.get("/events", {
+    ...withAuth(accessToken),
+    params
+  });
 }
 
 export async function createEvent(

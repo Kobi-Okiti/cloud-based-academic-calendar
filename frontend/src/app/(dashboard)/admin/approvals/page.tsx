@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { fetchMe } from "@/lib/api";
 import { approveUser, fetchPendingUsers, rejectUser } from "@/lib/adminApi";
+import { assertOk } from "@/lib/apiErrors";
 
 type PendingUser = {
   id: string;
@@ -37,23 +38,15 @@ export default function ApprovalsPage() {
       }
 
       const meRes = await fetchMe(token);
-      if (meRes.status >= 400) {
-        router.push("/login");
-        return;
-      }
-
-      const meData = meRes.data;
+      const meData = assertOk(meRes, "Failed to load profile").data;
       if (meData.user.role !== "admin") {
         router.push("/dashboard");
         return;
       }
 
       const res = await fetchPendingUsers(token);
-      if (res.status >= 400) {
-        throw new Error("Failed to load pending users");
-      }
-
-      setUsers(res.data?.users || []);
+      const body = assertOk(res, "Failed to load pending users").data;
+      setUsers(body?.users || []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error";
       setError(message);
@@ -82,9 +75,7 @@ export default function ApprovalsPage() {
           ? await approveUser(token, id)
           : await rejectUser(token, id);
 
-      if (res.status >= 400) {
-        throw new Error("Action failed");
-      }
+      assertOk(res, "Action failed");
 
       setUsers((prev) => prev.filter((u) => u.id !== id));
     } catch (err) {

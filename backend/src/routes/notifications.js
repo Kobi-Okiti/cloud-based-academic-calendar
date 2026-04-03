@@ -1,6 +1,8 @@
 const express = require("express");
 const { getSupabaseAdmin } = require("../lib/supabase");
 const { requireAuth, requireApproved } = require("../middleware/auth");
+const { validateQuery } = require("../middleware/validate");
+const { paginationSchema } = require("../lib/schemas");
 const {
   buildRecipientsQuery,
   filterRecipientsByLevel,
@@ -12,6 +14,13 @@ const {
 const router = express.Router();
 
 const WINDOW_MINUTES = Number(process.env.NOTIFY_WINDOW_MINUTES || 5);
+
+const buildPaginationMeta = (page, limit, totalCount) => ({
+  page,
+  limit,
+  totalCount,
+  totalPages: totalCount ? Math.ceil(totalCount / limit) : 0
+});
 
 const executeNotificationRun = async () => {
   const supabase = getSupabaseAdmin();
@@ -97,23 +106,36 @@ const executeNotificationRun = async () => {
   return { createdCount, errorCount };
 };
 
-router.get("/", requireAuth, requireApproved, async (req, res) => {
+router.get(
+  "/",
+  requireAuth,
+  requireApproved,
+  validateQuery(paginationSchema),
+  async (req, res) => {
   try {
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
+    const { page = 1, limit = 20 } = req.validatedQuery || {};
+    const rangeStart = (page - 1) * limit;
+    const rangeEnd = rangeStart + limit - 1;
+
+    const { data, error, count } = await supabase
       .from("notifications")
       .select(
-        "id, channel, status, scheduled_at, sent_at, event:events(id, title, start_at, is_urgent)"
+        "id, channel, status, scheduled_at, sent_at, event:events(id, title, start_at, is_urgent)",
+        { count: "exact" }
       )
       .eq("user_id", req.user.id)
       .order("scheduled_at", { ascending: false })
-      .limit(50);
+      .range(rangeStart, rangeEnd);
 
     if (error) {
       return res.status(500).json({ error: error.message });
     }
 
-    return res.json({ notifications: data || [] });
+    return res.json({
+      notifications: data || [],
+      pagination: buildPaginationMeta(page, limit, count || 0)
+    });
   } catch (err) {
     return res.status(500).json({ error: "Failed to load notifications" });
   }
