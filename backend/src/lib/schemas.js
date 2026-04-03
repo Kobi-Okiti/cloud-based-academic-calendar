@@ -92,8 +92,13 @@ const idParamSchema = z.object({
   id: z.string().uuid()
 });
 
+const promoteLevelsSchema = z.object({
+  dryRun: z.boolean().optional()
+});
+
 module.exports = {
   eventSchema,
   paginationSchema,
-  idParamSchema
+  idParamSchema,
+  promoteLevelsSchema
 };

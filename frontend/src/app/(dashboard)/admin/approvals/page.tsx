@@ -4,8 +4,21 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { fetchMe } from "@/lib/api";
-import { approveUser, fetchPendingUsers, rejectUser } from "@/lib/adminApi";
+import {
+  approveUser,
+  fetchPendingUsers,
+  promoteStudentLevels,
+  rejectUser
+} from "@/lib/adminApi";
 import { assertOk } from "@/lib/apiErrors";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 
 type PendingUser = {
   id: string;
@@ -19,15 +32,27 @@ type PendingUser = {
   created_at: string;
 };
 
+type PromotionSummary = {
+  total: number;
+  counts: Record<string, number>;
+};
+
 export default function ApprovalsPage() {
   const router = useRouter();
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [promotionPreview, setPromotionPreview] = useState<PromotionSummary | null>(null);
+  const [promotionStatus, setPromotionStatus] = useState<string | null>(null);
+  const [promotionLoading, setPromotionLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const loadPending = async () => {
+  const loadPending = async (nextPage = 1) => {
     try {
       setError(null);
+      setLoading(true);
       const supabase = getSupabaseClient();
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
@@ -44,19 +69,25 @@ export default function ApprovalsPage() {
         return;
       }
 
-      const res = await fetchPendingUsers(token);
+      const res = await fetchPendingUsers(token, { page: nextPage, limit: 5 });
       const body = assertOk(res, "Failed to load pending users").data;
       setUsers(body?.users || []);
+      const resolvedPage = body?.pagination?.page || nextPage;
+      const resolvedTotalPages = body?.pagination?.totalPages || 1;
+      setPage(resolvedPage);
+      setTotalPages(resolvedTotalPages);
+      return { page: resolvedPage, totalPages: resolvedTotalPages };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error";
       setError(message);
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadPending();
+    loadPending(1);
   }, []);
 
   const handleAction = async (id: string, action: "approve" | "reject") => {
@@ -77,10 +108,66 @@ export default function ApprovalsPage() {
 
       assertOk(res, "Action failed");
 
-      setUsers((prev) => prev.filter((u) => u.id !== id));
+      const currentPage = page;
+      const result = await loadPending(currentPage);
+      if (result && currentPage > 1 && currentPage > result.totalPages) {
+        await loadPending(currentPage - 1);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error";
       setError(message);
+    }
+  };
+
+  const handlePreviewPromotion = async () => {
+    try {
+      setPromotionLoading(true);
+      setPromotionStatus(null);
+      const supabase = getSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const res = await promoteStudentLevels(token, { dryRun: true });
+      const body = assertOk(res, "Failed to preview promotion").data;
+      setPromotionPreview(body);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error";
+      setPromotionStatus(message);
+    } finally {
+      setPromotionLoading(false);
+    }
+  };
+
+  const handlePromote = async () => {
+    try {
+      setPromotionLoading(true);
+      setPromotionStatus(null);
+      const supabase = getSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const res = await promoteStudentLevels(token, {});
+      const body = assertOk(res, "Failed to promote students").data;
+      setPromotionStatus(
+        `Promotion complete. ${body?.totalUpdated || 0} students updated.`
+      );
+      setPromotionPreview(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error";
+      setPromotionStatus(message);
+    } finally {
+      setPromotionLoading(false);
+      setConfirmOpen(false);
     }
   };
 
@@ -143,6 +230,122 @@ export default function ApprovalsPage() {
           </div>
         ))}
       </div>
+      {users.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-600">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              className="btn btn-outline"
+              type="button"
+              onClick={() => loadPending(page - 1)}
+              disabled={loading || page <= 1}
+            >
+              Prev
+            </button>
+            <button
+              className="btn btn-outline"
+              type="button"
+              onClick={() => loadPending(page + 1)}
+              disabled={loading || page >= totalPages}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="card p-6 space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-blue-950">Session rollover</h3>
+          <p className="helper-text">
+            Promote approved students up by one level (100→200→300→400→500).
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="btn btn-outline"
+            type="button"
+            onClick={handlePreviewPromotion}
+            disabled={promotionLoading}
+          >
+            {promotionLoading ? "Loading..." : "Preview changes"}
+          </button>
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            disabled={promotionLoading}
+          >
+            Promote students
+          </button>
+        </div>
+        {promotionStatus ? (
+          <p className="helper-text">{promotionStatus}</p>
+        ) : null}
+        {promotionPreview ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            <p className="font-medium text-slate-900">
+              Preview: {promotionPreview.total} student(s) will be updated.
+            </p>
+            <div className="mt-2 space-y-1">
+              {Object.entries(promotionPreview.counts).map(([key, value]) => (
+                <p key={key}>
+                  {key}: {value}
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm promotion</DialogTitle>
+            <DialogDescription>
+              This will promote approved students to the next level.
+            </DialogDescription>
+          </DialogHeader>
+          {promotionPreview ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <p className="font-medium text-slate-900">
+                {promotionPreview.total} student(s) will be updated.
+              </p>
+              <div className="mt-2 space-y-1">
+                {Object.entries(promotionPreview.counts).map(([key, value]) => (
+                  <p key={key}>
+                    {key}: {value}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="helper-text">
+              Run a preview to see how many students will be updated.
+            </p>
+          )}
+          <DialogFooter>
+            <button
+              className="btn btn-outline"
+              type="button"
+              onClick={() => setConfirmOpen(false)}
+              disabled={promotionLoading}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={handlePromote}
+              disabled={promotionLoading}
+            >
+              {promotionLoading ? "Promoting..." : "Confirm promotion"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
