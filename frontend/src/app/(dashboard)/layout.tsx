@@ -18,7 +18,7 @@ export default function DashboardLayout({
             <h1 className="text-lg font-semibold">Academic Calendar</h1>
           </div>
           <DashboardNav />
-          <LogoutButton className="btn btn-ghost" />
+          <LogoutButton className="btn btn-ghost hidden md:inline-flex" />
         </div>
         <div className="h-1 bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-200" />
       </header>

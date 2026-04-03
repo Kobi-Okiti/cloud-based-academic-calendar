@@ -34,7 +34,7 @@ body {
   }
 
   .card-sm {
-    @apply rounded-xl border border-slate-200/70 bg-white/90 shadow-sm;
+    @apply rounded-xl border border-slate-200/70 bg-white/90 shadow-sm transition-colors hover:bg-slate-50;
   }
 
   .btn {

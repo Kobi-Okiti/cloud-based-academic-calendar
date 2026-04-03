@@ -131,16 +131,16 @@ export default function DashboardPage() {
         ) : (
           <ul className="mt-3 space-y-2">
             {upcomingEvents.map((event) => (
-              <li key={event.id} className="card-sm p-4">
+              <li key={event.id} className="card-sm p-0">
                 <button
                   type="button"
-                  className="w-full text-left"
+                  className="w-full rounded-xl p-4 text-left transition-colors hover:bg-slate-50"
                   onClick={() => handleOpen(event)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-sm text-slate-600">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{event.title}</p>
+                      <p className="text-sm text-slate-600 truncate">
                         {new Date(event.start_at).toLocaleString()}
                       </p>
                     </div>
@@ -149,7 +149,7 @@ export default function DashboardPage() {
                     ) : null}
                   </div>
                   {event.description ? (
-                    <p className="mt-2 text-sm text-slate-600">
+                    <p className="mt-2 text-sm text-slate-600 truncate">
                       {event.description}
                     </p>
                   ) : null}

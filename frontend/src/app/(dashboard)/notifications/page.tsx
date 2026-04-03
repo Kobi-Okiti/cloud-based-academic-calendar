@@ -31,44 +31,34 @@ export default function NotificationsPage() {
   const [token, setToken] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   const loadNotifications = useCallback(async (
     accessToken: string,
-    nextPage: number,
-    append: boolean
+    nextPage: number
   ) => {
     try {
-      if (append) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
+      setLoading(true);
       setError(null);
 
       const notifRes = await fetchNotifications(accessToken, {
         page: nextPage,
-        limit: 20
+        limit: 10
       });
       const body = assertOk(notifRes, "Failed to load notifications").data;
       const nextItems = body?.notifications || [];
       const nextPagination = body?.pagination;
 
-      setNotifications((prev) => (append ? [...prev, ...nextItems] : nextItems));
+      setNotifications(nextItems);
       setPage(nextPagination?.page || nextPage);
       setTotalPages(nextPagination?.totalPages || 1);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error";
       setError(message);
     } finally {
-      if (append) {
-        setLoadingMore(false);
-      } else {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, []);
 
@@ -93,7 +83,7 @@ export default function NotificationsPage() {
 
         assertOk(res, "Failed to load profile");
         setToken(accessToken);
-        await loadNotifications(accessToken, 1, false);
+        await loadNotifications(accessToken, 1);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Error";
         setError(message);
@@ -104,9 +94,9 @@ export default function NotificationsPage() {
     load();
   }, [loadNotifications, router]);
 
-  const handleLoadMore = async () => {
-    if (!token || page >= totalPages || loadingMore) return;
-    await loadNotifications(token, page + 1, true);
+  const handlePageChange = async (nextPage: number) => {
+    if (!token || nextPage < 1 || nextPage > totalPages || loading) return;
+    await loadNotifications(token, nextPage);
   };
 
   if (error) {
@@ -156,18 +146,29 @@ export default function NotificationsPage() {
               </div>
             ))}
           </div>
-          {page < totalPages ? (
-            <div className="flex justify-center">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-600">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex gap-2">
               <button
                 className="btn btn-outline"
                 type="button"
-                onClick={handleLoadMore}
-                disabled={loadingMore}
+                onClick={() => handlePageChange(page - 1)}
+                disabled={loading || page <= 1}
               >
-                {loadingMore ? "Loading..." : "Load more"}
+                Prev
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={loading || page >= totalPages}
+              >
+                Next
               </button>
             </div>
-          ) : null}
+          </div>
         </>
       )}
     </div>

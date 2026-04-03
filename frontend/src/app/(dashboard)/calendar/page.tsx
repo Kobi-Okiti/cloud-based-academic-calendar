@@ -344,13 +344,13 @@ export default function CalendarPage() {
                 <li key={event.id} className="card-sm p-0">
                   <button
                     type="button"
-                    className="w-full p-4 text-left"
+                    className="w-full rounded-xl p-4 text-left transition-colors hover:bg-slate-50"
                     onClick={() => handleOpen(event)}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium">{event.title}</p>
-                        <p className="text-sm text-slate-600">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{event.title}</p>
+                        <p className="text-sm text-slate-600 truncate">
                           {new Date(event.start_at).toLocaleString()}
                         </p>
                       </div>
@@ -389,13 +389,13 @@ export default function CalendarPage() {
               <li key={event.id} className="card-sm p-0">
                 <button
                   type="button"
-                  className="w-full p-4 text-left"
+                  className="w-full rounded-xl p-4 text-left transition-colors hover:bg-slate-50"
                   onClick={() => handleOpen(event)}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-sm text-slate-600">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{event.title}</p>
+                      <p className="text-sm text-slate-600 truncate">
                         {new Date(event.start_at).toLocaleString()}
                       </p>
                     </div>
@@ -404,7 +404,7 @@ export default function CalendarPage() {
                     ) : null}
                   </div>
                   {event.description ? (
-                    <p className="mt-2 text-sm text-slate-600">
+                    <p className="mt-2 text-sm text-slate-600 truncate">
                       {event.description}
                     </p>
                   ) : null}

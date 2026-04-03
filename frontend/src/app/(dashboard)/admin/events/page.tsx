@@ -6,6 +6,8 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { fetchMe } from "@/lib/api";
 import { createEvent, deleteEvent, fetchEvents, updateEvent } from "@/lib/eventsApi";
 import { assertOk } from "@/lib/apiErrors";
+import Skeleton from "@/components/Skeleton";
+import EmptyState from "@/components/EmptyState";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +55,8 @@ const categories = [
   { value: "seminar", label: "Seminar" }
 ];
 
+const EVENTS_PAGE_LIMIT = 10;
+
 const toInputDateTime = (value: string | null) => {
   if (!value) return "";
   const date = new Date(value);
@@ -83,17 +87,22 @@ export default function AdminEventsPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const isEditing = Boolean(editingId);
   const [deleteTarget, setDeleteTarget] = useState<EventItem | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const loadEvents = async () => {
+  const loadEvents = async (nextPage = 1) => {
+    setEventsLoading(true);
     const supabase = getSupabaseClient();
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
 
     if (!token) {
+      setEventsLoading(false);
       router.push("/login");
       return;
     }
@@ -101,32 +110,35 @@ export default function AdminEventsPage() {
     const meRes = await fetchMe(token);
     const meData = assertOk(meRes, "Failed to load profile").data;
     if (meData.user.role !== "admin") {
+      setEventsLoading(false);
       router.push("/dashboard");
       return;
     }
 
-    const baseParams = { page: 1, limit: 100 };
-    const eventsRes = await fetchEvents(token, baseParams);
-    const eventsData = assertOk(eventsRes, "Failed to load events").data;
-    let allEvents = eventsData?.events || [];
-
-    const totalPages = eventsData?.pagination?.totalPages || 1;
-    if (totalPages > 1) {
-      const pages = Array.from({ length: totalPages - 1 }, (_, idx) => idx + 2);
-      const responses = await Promise.all(
-        pages.map((page) => fetchEvents(token, { ...baseParams, page }))
-      );
-      responses.forEach((response) => {
-        const body = assertOk(response, "Failed to load events").data;
-        allEvents = allEvents.concat(body?.events || []);
+    try {
+      const eventsRes = await fetchEvents(token, {
+        page: nextPage,
+        limit: EVENTS_PAGE_LIMIT
       });
-    }
+      const eventsData = assertOk(eventsRes, "Failed to load events").data;
+      const nextEvents = eventsData?.events || [];
+      const nextTotalPages = Math.max(1, eventsData?.pagination?.totalPages || 1);
 
-    setEvents(allEvents);
+      setEvents(nextEvents);
+      setPage(eventsData?.pagination?.page || nextPage);
+      setTotalPages(nextTotalPages);
+      return { count: nextEvents.length, totalPages: nextTotalPages };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error";
+      setStatus(message);
+      return { count: 0, totalPages: 1 };
+    } finally {
+      setEventsLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadEvents();
+    loadEvents(1);
   }, []);
 
   const validate = () => {
@@ -197,16 +209,9 @@ export default function AdminEventsPage() {
         ? await updateEvent(token, editingId, payload)
         : await createEvent(token, payload);
 
-      const body = assertOk(res, "Failed to save event").data;
-      if (editingId) {
-        setEvents((prev) =>
-          prev.map((item) => (item.id === editingId ? body.event : item))
-        );
-        setStatus("Event updated.");
-      } else {
-        setEvents((prev) => [...prev, body.event]);
-        setStatus("Event created.");
-      }
+      assertOk(res, "Failed to save event");
+      await loadEvents(page);
+      setStatus(editingId ? "Event updated." : "Event created.");
       setForm({
         title: "",
         description: "",
@@ -243,7 +248,11 @@ export default function AdminEventsPage() {
       const res = await deleteEvent(token, id);
       assertOk(res, "Failed to delete event");
 
-      setEvents((prev) => prev.filter((item) => item.id !== id));
+      const result = await loadEvents(page);
+      if (result && result.count === 0 && page > 1) {
+        const targetPage = Math.max(1, Math.min(page - 1, result.totalPages));
+        await loadEvents(targetPage);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error";
       setStatus(message);
@@ -293,6 +302,11 @@ export default function AdminEventsPage() {
       audience_level: "",
       is_urgent: false
     });
+  };
+
+  const handlePageChange = async (nextPage: number) => {
+    if (eventsLoading || nextPage < 1 || nextPage > totalPages) return;
+    await loadEvents(nextPage);
   };
 
   return (
@@ -478,19 +492,30 @@ export default function AdminEventsPage() {
 
       <div>
         <h3 className="text-lg font-semibold text-blue-950">Existing events</h3>
-        {events.length === 0 ? (
-          <p className="helper-text mt-2">No events yet.</p>
+        {eventsLoading ? (
+          <div className="mt-4 space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={`events-skel-${index}`} className="h-20" />
+            ))}
+          </div>
+        ) : events.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState
+              title="No events yet"
+              description="Create an event above to start the academic calendar."
+            />
+          </div>
         ) : (
           <div className="mt-4 space-y-3">
             {events.map((event) => (
               <div key={event.id} className="card-sm p-4">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-medium">{event.title}</p>
-                    <p className="text-sm text-slate-600">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{event.title}</p>
+                    <p className="text-sm text-slate-600 truncate">
                       {new Date(event.start_at).toLocaleString()}
                     </p>
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-slate-600 truncate">
                       Audience: {event.audience_scope}
                       {event.audience_level
                         ? ` (Level ${event.audience_level})`
@@ -519,6 +544,31 @@ export default function AdminEventsPage() {
             ))}
           </div>
         )}
+        {!eventsLoading && totalPages > 1 ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-600">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={eventsLoading || page <= 1}
+              >
+                Prev
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={eventsLoading || page >= totalPages}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <Dialog
