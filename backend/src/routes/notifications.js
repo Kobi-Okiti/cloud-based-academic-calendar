@@ -121,7 +121,7 @@ router.get(
     const { data, error, count } = await supabase
       .from("notifications")
       .select(
-        "id, channel, status, scheduled_at, sent_at, event:events(id, title, start_at, is_urgent)",
+        "id, channel, status, scheduled_at, sent_at, read_at, event:events(id, title, start_at, is_urgent)",
         { count: "exact" }
       )
       .eq("user_id", req.user.id)
@@ -132,12 +132,42 @@ router.get(
       return res.status(500).json({ error: error.message });
     }
 
+    const readAt = new Date().toISOString();
+    const { error: readError } = await supabase
+      .from("notifications")
+      .update({ read_at: readAt })
+      .eq("user_id", req.user.id)
+      .is("read_at", null);
+
+    if (readError) {
+      console.warn("Failed to mark notifications read:", readError.message);
+    }
+
     return res.json({
       notifications: data || [],
       pagination: buildPaginationMeta(page, limit, count || 0)
     });
   } catch (err) {
     return res.status(500).json({ error: "Failed to load notifications" });
+  }
+});
+
+router.get("/unread-count", requireAuth, requireApproved, async (req, res) => {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", req.user.id)
+      .is("read_at", null);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ count: count || 0 });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to load unread count" });
   }
 });
 

@@ -14,3 +14,7 @@ export async function fetchNotifications(
     params
   });
 }
+
+export async function fetchUnreadNotificationsCount(accessToken: string) {
+  return api.get("/notifications/unread-count", withAuth(accessToken));
+}

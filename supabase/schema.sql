@@ -96,6 +96,7 @@ create table if not exists notifications (
   status notification_status not null default 'scheduled',
   scheduled_at timestamptz not null,
   sent_at timestamptz,
+  read_at timestamptz,
   error text,
   created_at timestamptz not null default now()
 );
