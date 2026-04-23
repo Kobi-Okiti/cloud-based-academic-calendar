@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { fetchMe } from "@/lib/api";
 import LogoutButton from "@/components/LogoutButton";
+import AppLogo from "@/components/AppLogo";
 
 export default function PendingPage() {
   const router = useRouter();
@@ -49,14 +50,20 @@ export default function PendingPage() {
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-4xl items-center">
         <div className="card w-full p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-700">
-                Lead City University
-              </p>
-              <h1 className="text-2xl font-semibold">Pending approval</h1>
+            <div className="flex items-center gap-3">
+              <AppLogo size="small" priority />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-700">
+                  Lead City University
+                </p>
+                <p className="text-sm font-medium text-blue-900">
+                  Academic Calendar Portal
+                </p>
+              </div>
             </div>
             <LogoutButton />
           </div>
+          <h1 className="mt-4 text-2xl font-semibold">Pending approval</h1>
           <p className="helper-text mt-4">
             Your account is waiting for admin approval. You will be notified
             once access is granted.

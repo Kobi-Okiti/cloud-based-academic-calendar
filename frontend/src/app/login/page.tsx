@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { fetchMe } from "@/lib/api";
+import AppLogo from "@/components/AppLogo";
 
 type LoginErrors = {
   email?: string;
@@ -84,9 +85,17 @@ export default function LoginPage() {
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-5xl items-center">
         <div className="grid w-full gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-700">
-              Lead City University
-            </p>
+            <div className="flex items-center gap-3">
+              <AppLogo size="large" priority />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-700">
+                  Lead City University
+                </p>
+                <p className="text-sm font-medium text-blue-900">
+                  Academic Calendar Portal
+                </p>
+              </div>
+            </div>
             <h1 className="text-4xl font-semibold text-blue-950">
               Academic Calendar Portal
             </h1>

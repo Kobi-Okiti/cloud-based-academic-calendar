@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AppLogo from "@/components/AppLogo";
 
 export default function HomePage() {
   return (
@@ -6,9 +7,17 @@ export default function HomePage() {
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-6xl items-center">
         <div className="grid w-full gap-10 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-700">
-              Lead City University
-            </p>
+            <div className="flex items-center gap-4">
+              <AppLogo size="hero" priority />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-700">
+                  Lead City University
+                </p>
+                <p className="text-sm font-medium text-blue-900">
+                  Academic Calendar Portal
+                </p>
+              </div>
+            </div>
             <h1 className="text-4xl font-semibold text-blue-950 md:text-5xl">
               Academic Calendar Monitoring & Notifications
             </h1>
