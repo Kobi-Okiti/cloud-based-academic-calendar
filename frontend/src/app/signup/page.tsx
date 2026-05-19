@@ -7,6 +7,7 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { cleanupSignup } from "@/lib/api";
 import { DEPARTMENTS } from "@/lib/departments";
 import AppLogo from "@/components/AppLogo";
+import DepartmentSelect from "@/components/DepartmentSelect";
 
 type Role = "student" | "staff";
 
@@ -77,7 +78,7 @@ export default function SignupPage() {
 
     if (!trimmedDepartment) {
       nextErrors.department = "Department is required.";
-    } else if (!DEPARTMENTS.includes(trimmedDepartment as (typeof DEPARTMENTS)[number])) {
+    } else if (!DEPARTMENTS.includes(trimmedDepartment)) {
       nextErrors.department = "Select a valid department.";
     }
 
@@ -344,20 +345,10 @@ export default function SignupPage() {
 
               <div className="space-y-2">
                 <label className="label">Department</label>
-                <select
-                  className="input"
+                <DepartmentSelect
                   value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                >
-                  <option value="" disabled>
-                    Select department
-                  </option>
-                  {DEPARTMENTS.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setDepartment}
+                />
                 {errors.department ? (
                   <p className="text-sm text-red-600">{errors.department}</p>
                 ) : null}
